@@ -3159,6 +3159,16 @@ class Series:
         ]
         """
 
+    def cum_mean(self, *, reverse: bool = False) -> Series:
+        """
+        Get an array with the cumulative avg computed at every element.
+
+        Parameters
+        ----------
+        reverse
+            reverse the operation.
+        """
+
     def cum_sum(self, *, reverse: bool = False) -> Series:
         """
         Get an array with the cumulative sum computed at every element.

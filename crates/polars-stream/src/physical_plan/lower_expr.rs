@@ -1145,6 +1145,7 @@ fn lower_exprs_with_ctx(
                 input: ref inner_exprs,
                 function:
                     ref function @ (IRFunctionExpr::CumMin { reverse }
+                    | IRFunctionExpr::CumMean { reverse }
                     | IRFunctionExpr::CumMax { reverse }
                     | IRFunctionExpr::CumSum { reverse }
                     | IRFunctionExpr::CumCount { reverse }

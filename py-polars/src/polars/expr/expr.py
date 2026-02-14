@@ -1565,6 +1565,17 @@ class Expr:
         """
         return wrap_expr(self._pyexpr.drop_nans())
 
+    def cum_mean(self, *, reverse: bool = False) -> Expr:
+        """
+        Get an array with the cumulative avg computed at every element.
+
+        Parameters
+        ----------
+        reverse
+            Reverse the operation.
+        """
+        return wrap_expr(self._pyexpr.cum_mean(reverse))
+
     def cum_sum(self, *, reverse: bool = False) -> Expr:
         """
         Get an array with the cumulative sum computed at every element.

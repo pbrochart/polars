@@ -226,6 +226,10 @@ pub enum IRFunctionExpr {
     CumMax {
         reverse: bool,
     },
+    #[cfg(feature = "cum_agg")]
+    CumMean {
+        reverse: bool,
+    },
     Reverse,
     #[cfg(feature = "dtype-struct")]
     ValueCounts {
@@ -566,6 +570,8 @@ impl Hash for IRFunctionExpr {
             CumMin { reverse } => reverse.hash(state),
             #[cfg(feature = "cum_agg")]
             CumMax { reverse } => reverse.hash(state),
+            #[cfg(feature = "cum_agg")]
+            CumMean { reverse } => reverse.hash(state),
             #[cfg(feature = "dtype-struct")]
             ValueCounts {
                 sort,
@@ -803,6 +809,8 @@ impl Display for IRFunctionExpr {
             CumMin { .. } => "cum_min",
             #[cfg(feature = "cum_agg")]
             CumMax { .. } => "cum_max",
+            #[cfg(feature = "cum_agg")]
+            CumMean { .. } => "cum_mean",
             #[cfg(feature = "dtype-struct")]
             ValueCounts { .. } => "value_counts",
             #[cfg(feature = "unique_counts")]
@@ -1108,6 +1116,7 @@ impl IRFunctionExpr {
             #[cfg(feature = "cum_agg")]
             F::CumCount { .. }
             | F::CumSum { .. }
+            | F::CumMean { .. }
             | F::CumProd { .. }
             | F::CumMin { .. }
             | F::CumMax { .. } => FunctionOptions::length_preserving(),

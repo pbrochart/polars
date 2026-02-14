@@ -3,7 +3,7 @@ use polars_core::utils::last_non_null;
 use polars_error::PolarsResult;
 use polars_ops::series::{
     cum_count_with_init, cum_max_with_init, cum_min_with_init, cum_prod_with_init,
-    cum_sum_with_init,
+    cum_mean_with_init, cum_sum_with_init,
 };
 
 use super::ComputeNode;
@@ -21,6 +21,7 @@ pub struct CumAggNode {
 pub enum CumAggKind {
     Min,
     Max,
+    Mean,
     Sum,
     Count,
     Prod,
@@ -40,6 +41,7 @@ impl ComputeNode for CumAggNode {
         match self.kind {
             CumAggKind::Min => "cum_min",
             CumAggKind::Max => "cum_max",
+            CumAggKind::Mean => "cum_mean",
             CumAggKind::Sum => "cum_sum",
             CumAggKind::Count => "cum_count",
             CumAggKind::Prod => "cum_prod",
@@ -83,6 +85,7 @@ impl ComputeNode for CumAggNode {
                 let out = match self.kind {
                     CumAggKind::Min => cum_min_with_init(s, false, &self.state),
                     CumAggKind::Max => cum_max_with_init(s, false, &self.state),
+                    CumAggKind::Mean => cum_mean_with_init(s, false, &self.state),
                     CumAggKind::Sum => cum_sum_with_init(s, false, &self.state),
                     CumAggKind::Count => {
                         cum_count_with_init(s, false, self.state.extract().unwrap_or_default())
