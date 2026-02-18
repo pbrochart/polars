@@ -11,6 +11,7 @@ use polars_core::with_match_physical_numeric_polars_type;
 use polars_utils::float::IsFloat;
 use polars_utils::min_max::MinMax;
 use std::ops::{Add, Div};
+use num_traits::ToPrimitive;
 
 fn det_max<T>(state: &mut T, v: Option<T>) -> Option<Option<T>>
 where
@@ -51,9 +52,23 @@ where
     }
 }
 
-fn det_avg<T>(state: &mut (T, T), v: Option<T>) -> Option<Option<T>>
+fn det_avg<T>(state: &mut (f64, u64), v: Option<T>) -> Option<Option<f64>>
 where
-    T: Copy + Zero + One + Add<Output = T> + Div<Output = T> + AddAssign, 
+    T: Copy + ToPrimitive,
+{
+    match v {
+        Some(v) => {
+            state.0 += v.to_f64()?;
+            state.1 += 1;
+            Some(Some(state.0 / state.1 as f64))
+        }
+        None => Some(None),
+    }
+}
+
+fn det_avg_decimal<T>(state: &mut (T, T), v: Option<T>) -> Option<Option<T>>
+where
+    T: Copy + One + Add<Output = T> + Div<Output = T> + AddAssign,
 {
     match v {
         Some(v) => {
@@ -61,13 +76,7 @@ where
             state.1 += T::one();
             Some(Some(state.0 / state.1))
         },
-        None => {
-            if state.1.is_zero() {
-                Some(None)
-            } else {
-                Some(Some(state.0 / state.1))
-            }
-        }
+        None => Some(None),
     }
 }
 
@@ -105,15 +114,15 @@ where
 fn cum_mean_scan_numeric<T, F>(
     ca: &ChunkedArray<T>,
     reverse: bool,
-    init: (T::Native, T::Native),
+    init: (f64, u64),
     update: F,
-) -> ChunkedArray<T>
+) -> Float64Chunked
 where
     T: PolarsNumericType,
     ChunkedArray<T>: FromIterator<Option<T::Native>>,
-    F: Fn(&mut (T::Native, T::Native), Option<T::Native>) -> Option<Option<T::Native>>,
+    F: Fn(&mut (f64, u64), Option<T::Native>) -> Option<Option<f64>>,
 {
-    let out: ChunkedArray<T> = match reverse {
+    let out: Float64Chunked = match reverse {
         false => ca.iter().scan(init, update).collect_trusted(),
         true => ca.iter().rev().scan(init, update).collect_reversed(),
     };
@@ -283,17 +292,13 @@ fn cum_avg_numeric<T>(
     ca: &ChunkedArray<T>,
     reverse: bool,
     init: Option<T::Native>,
-) -> ChunkedArray<T>
+) -> Float64Chunked
 where
     T: PolarsNumericType,
-    ChunkedArray<T>: FromIterator<Option<T::Native>>,
-        <T as PolarsNumericType>::Native:
-        Copy + Zero + One
-        + Add<Output = <T as PolarsNumericType>::Native>
-        + Div<Output = <T as PolarsNumericType>::Native>,
+    T::Native: Copy + ToPrimitive,
 {
-    let init = (init.unwrap_or(T::Native::zero()), T::Native::zero());
-    cum_mean_scan_numeric(ca, reverse, init, det_avg)
+    let init_state = (init.and_then(|v| v.to_f64()).unwrap_or(0.0), 0u64);
+    cum_mean_scan_numeric(ca, reverse, init_state, det_avg)
 }
 
 #[cfg(feature = "dtype-decimal")]
@@ -303,10 +308,10 @@ fn cum_avg_decimal(
     init: Option<i128>,
 ) -> PolarsResult<Int128Chunked> {
 
-    let mut state = (init.unwrap_or(0), 0 as i128);
+    let mut state = (init.unwrap_or(0), 0);
     let update = |opt_v: Option<i128>| -> PolarsResult<Option<i128>> {
         if let Some(v) = opt_v {
-            let new_value = det_avg(&mut state, Some(v)).ok_or_else(
+            let new_value = det_avg_decimal(&mut state, Some(v)).ok_or_else(
                 || polars_err!(ComputeError: "overflow in decimal average in cum_avg"),
             )?;
             let value = new_value.unwrap_or(0);
