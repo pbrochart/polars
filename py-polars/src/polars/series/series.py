@@ -6259,8 +6259,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -6439,8 +6440,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -6619,8 +6621,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -6795,8 +6798,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -6980,8 +6984,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -7167,8 +7172,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -7410,8 +7416,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -7598,8 +7605,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         min_samples
             The number of values in the window that should be non-null before computing
@@ -7798,8 +7806,9 @@ class Series:
             - 1i    (1 index count)
 
             By "calendar day", we mean the corresponding time on the next day
-            (which may not be 24 hours, due to daylight savings). Similarly for
-            "calendar week", "calendar month", "calendar quarter", and
+            (which may not be 24 hours, due to daylight savings - in cases of ambiguity,
+            we follow RFC-5545 and preserve the DST fold of the original datetime).
+            Similarly for "calendar week", "calendar month", "calendar quarter", and
             "calendar year".
         method : {'average', 'min', 'max', 'dense', 'random'}
             The method used to assign ranks to tied elements.
