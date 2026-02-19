@@ -435,6 +435,10 @@ pub fn cum_mean_with_init(
 ) -> PolarsResult<Series> {
     use DataType::*;
     let out = match s.dtype() {
+        Boolean => {
+            let s = s.cast(&UInt32)?;
+            cum_avg_numeric(s.u32()?, reverse, init.extract()).into_series()
+        },
         Int8 => cum_avg_numeric(s.i8()?, reverse, init.extract()).into_series(),
         UInt8 => cum_avg_numeric(s.u8()?, reverse, init.extract()).into_series(),
         Int16 => cum_avg_numeric(s.i16()?, reverse, init.extract()).into_series(),
@@ -466,6 +470,20 @@ pub fn cum_mean_with_init(
             let s = s.to_physical_repr();
             let ca = s.i64()?;
             cum_avg_numeric(ca, reverse, init.extract()).cast(&Duration(*tu))?
+        },
+
+        #[cfg(feature = "dtype-datetime")]
+        Datetime(tu, tz) => {
+            let s = s.to_physical_repr();
+            let ca = s.i64()?;
+            cum_avg_numeric(ca, reverse, init.extract()).cast(&Datetime(*tu, tz.clone()))?
+        },
+
+        #[cfg(feature = "dtype-date")]
+        Date => {
+            let s = s.to_physical_repr();
+            let ca = s.i32()?;
+            cum_avg_numeric(ca, reverse, init.extract()).cast(&Date)?
         },
         dt => polars_bail!(opq = cum_mean, dt),
     };

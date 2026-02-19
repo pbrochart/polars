@@ -3,7 +3,7 @@ use polars_core::utils::last_non_null;
 use polars_error::PolarsResult;
 use polars_ops::series::{
     cum_count_with_init, cum_max_with_init, cum_min_with_init, cum_prod_with_init,
-    cum_mean_with_init, cum_sum_with_init,
+    cum_sum_with_init,
 };
 
 use super::ComputeNode;
@@ -85,7 +85,7 @@ impl ComputeNode for CumAggNode {
                 let out = match self.kind {
                     CumAggKind::Min => cum_min_with_init(s, false, &self.state),
                     CumAggKind::Max => cum_max_with_init(s, false, &self.state),
-                    CumAggKind::Mean => cum_mean_with_init(s, false, &self.state),
+                    CumAggKind::Mean => unimplemented!("cum_mean not supported in streaming yet"),
                     CumAggKind::Sum => cum_sum_with_init(s, false, &self.state),
                     CumAggKind::Count => {
                         cum_count_with_init(s, false, self.state.extract().unwrap_or_default())
