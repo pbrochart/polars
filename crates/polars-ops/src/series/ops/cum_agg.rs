@@ -297,8 +297,8 @@ where
     T: PolarsNumericType,
     T::Native: Copy + ToPrimitive,
 {
-    let init_state = (init.and_then(|v| v.to_f64()).unwrap_or(0.0), 0u64);
-    cum_mean_scan_numeric(ca, reverse, init_state, det_avg)
+    let init = (init.and_then(|v| v.to_f64()).unwrap_or(0.0), 0u64);
+    cum_mean_scan_numeric(ca, reverse, init, det_avg)
 }
 
 #[cfg(feature = "dtype-decimal")]

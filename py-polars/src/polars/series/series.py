@@ -3161,12 +3161,35 @@ class Series:
 
     def cum_mean(self, *, reverse: bool = False) -> Series:
         """
-        Get an array with the cumulative avg computed at every element.
-
+        Get an array with the cumulative mean computed at every element.
         Parameters
         ----------
         reverse
-            reverse the operation.
+            Reverse the operation.
+        Examples
+        --------
+        >>> s = pl.Series("a", [0, 1, 8, 32, 384])
+        >>> s.cum_mean()
+        shape: (5,)
+        Series: 'a' [f64]
+        [
+                0.0
+                0.5
+                3.0
+                10.25
+                85.0
+        ]
+        >>> s = pl.Series("a", values=[-32.5, 1.75, None, 6.0, 24.5], dtype=pl.Float32)
+        >>> s.cum_mean()
+        shape: (5,)
+        Series: 'a' [f32]
+        [
+                -32.5
+                -15.375
+                null
+                -8.25
+                -0.0625
+        ]
         """
 
     def cum_sum(self, *, reverse: bool = False) -> Series:
