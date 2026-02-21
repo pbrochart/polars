@@ -10,8 +10,21 @@ use polars_core::utils::{CustomIterTools, NoNull};
 use polars_core::with_match_physical_numeric_polars_type;
 use polars_utils::float::IsFloat;
 use polars_utils::min_max::MinMax;
-use std::ops::{Add, Div};
 use num_traits::ToPrimitive;
+use polars_utils::kahan_sum::KahanSum;
+
+#[cfg(feature = "dtype-decimal")]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CumMeanDecimalState {
+    pub sum: i128,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CumMeanFloatState {
+    pub sum: KahanSum<f64>,
+    pub count: u64,
+}
 
 fn det_max<T>(state: &mut T, v: Option<T>) -> Option<Option<T>>
 where
@@ -52,30 +65,17 @@ where
     }
 }
 
-fn det_avg<T>(state: &mut (f64, u64), v: Option<T>) -> Option<Option<f64>>
+fn det_avg<T>(state: &mut CumMeanFloatState, v: Option<T>) -> Option<Option<f64>>
 where
     T: Copy + ToPrimitive,
 {
     match v {
         Some(v) => {
-            state.0 += v.to_f64()?;
-            state.1 += 1;
-            Some(Some(state.0 / state.1 as f64))
+            let x = v.to_f64()?;
+            state.sum += x;
+            state.count += 1;
+            Some(Some(state.sum.sum() / state.count as f64))
         }
-        None => Some(None),
-    }
-}
-
-fn det_avg_decimal<T>(state: &mut (T, T), v: Option<T>) -> Option<Option<T>>
-where
-    T: Copy + One + Add<Output = T> + Div<Output = T> + AddAssign,
-{
-    match v {
-        Some(v) => {
-            state.0 += v;
-            state.1 += T::one();
-            Some(Some(state.0 / state.1))
-        },
         None => Some(None),
     }
 }
@@ -114,13 +114,13 @@ where
 fn cum_mean_scan_numeric<T, F>(
     ca: &ChunkedArray<T>,
     reverse: bool,
-    init: (f64, u64),
+    init: CumMeanFloatState,
     update: F,
 ) -> Float64Chunked
 where
     T: PolarsNumericType,
     ChunkedArray<T>: FromIterator<Option<T::Native>>,
-    F: Fn(&mut (f64, u64), Option<T::Native>) -> Option<Option<f64>>,
+    F: Fn(&mut CumMeanFloatState, Option<T::Native>) -> Option<Option<f64>>,
 {
     let out: Float64Chunked = match reverse {
         false => ca.iter().scan(init, update).collect_trusted(),
@@ -297,7 +297,9 @@ where
     T: PolarsNumericType,
     T::Native: Copy + ToPrimitive,
 {
-    let init = (init.and_then(|v| v.to_f64()).unwrap_or(0.0), 0u64);
+    let mut sum = KahanSum::default();
+    sum += init.and_then(|v| v.to_f64()).unwrap_or(0.0);
+    let init = CumMeanFloatState {sum, count: 0};
     cum_mean_scan_numeric(ca, reverse, init, det_avg)
 }
 
@@ -307,14 +309,18 @@ fn cum_avg_decimal(
     reverse: bool,
     init: Option<i128>,
 ) -> PolarsResult<Int128Chunked> {
+    use polars_compute::decimal::{DEC128_MAX_PREC, dec128_add, dec128_div};
 
-    let mut state = (init.unwrap_or(0), 0);
+    let mut state = CumMeanDecimalState {sum: init.unwrap_or(0), count: 0};
     let update = |opt_v: Option<i128>| -> PolarsResult<Option<i128>> {
         if let Some(v) = opt_v {
-            let new_value = det_avg_decimal(&mut state, Some(v)).ok_or_else(
-                || polars_err!(ComputeError: "overflow in decimal average in cum_avg"),
+            state.sum = dec128_add(state.sum, v, DEC128_MAX_PREC).ok_or_else(
+                || polars_err!(ComputeError: "overflow in decimal addition in cum_mean"),
             )?;
-            let value = new_value.unwrap_or(0);
+            state.count += 1;
+            let value = dec128_div(state.sum, state.count as i128, DEC128_MAX_PREC, 0).ok_or_else(
+                || polars_err!(ComputeError: "overflow in decimal division in cum_mean"),
+            )?;
             Ok(Some(value))
         } else {
             Ok(None)
