@@ -366,6 +366,8 @@ pub fn function_expr_to_udf(func: IRFunctionExpr) -> SpecialEq<Arc<dyn ColumnsUd
         #[cfg(feature = "round_series")]
         F::RoundSF { digits } => map!(round::round_sig_figs, digits),
         #[cfg(feature = "round_series")]
+        F::Truncate { decimals } => map!(round::truncate, decimals),
+        #[cfg(feature = "round_series")]
         F::Floor => map!(round::floor),
         #[cfg(feature = "round_series")]
         F::Ceil => map!(round::ceil),
@@ -528,6 +530,9 @@ pub fn function_expr_to_udf(func: IRFunctionExpr) -> SpecialEq<Arc<dyn ColumnsUd
         #[cfg(feature = "dtype-struct")]
         F::RowDecode(fs, variants) => {
             map_as_slice!(misc::row_decode, fs.clone(), variants.clone())
+        },
+        F::DynamicPred { pred } => {
+            map_as_slice!(misc::dynamic_pred, &pred)
         },
     }
 }

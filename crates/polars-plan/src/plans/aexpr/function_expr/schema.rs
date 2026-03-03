@@ -1,3 +1,5 @@
+#[cfg(feature = "dtype-decimal")]
+use polars_compute::decimal::DEC128_MAX_PREC;
 use polars_core::utils::materialize_dyn_int;
 
 use super::*;
@@ -161,6 +163,8 @@ impl IRFunctionExpr {
                     T::UInt64 => T::UInt64,
                     #[cfg(feature = "dtype-i128")]
                     T::Int128 => T::Int128,
+                    #[cfg(feature = "dtype-decimal")]
+                    T::Decimal(_p, s) => T::Decimal(DEC128_MAX_PREC, *s),
                     _ => T::Int64,
                 }
             }),
@@ -264,9 +268,7 @@ impl IRFunctionExpr {
                 DataType::UInt16 => DataType::Int32,
                 DataType::UInt8 => DataType::Int16,
                 #[cfg(feature = "dtype-decimal")]
-                DataType::Decimal(_, scale) => {
-                    DataType::Decimal(polars_compute::decimal::DEC128_MAX_PREC, *scale)
-                },
+                DataType::Decimal(_, scale) => DataType::Decimal(DEC128_MAX_PREC, *scale),
                 dt => dt.clone(),
             }),
             #[cfg(feature = "pct_change")]
@@ -289,7 +291,9 @@ impl IRFunctionExpr {
             Log => mapper.log_dtype(),
             Unique(_) => mapper.with_same_dtype(),
             #[cfg(feature = "round_series")]
-            Round { .. } | RoundSF { .. } | Floor | Ceil => mapper.with_same_dtype(),
+            Round { .. } | RoundSF { .. } | Truncate { .. } | Floor | Ceil => {
+                mapper.with_same_dtype()
+            },
             #[cfg(feature = "fused")]
             Fused(_) => mapper.map_to_supertype(),
             ConcatExpr(_) => mapper.map_to_supertype(),
@@ -461,6 +465,7 @@ impl IRFunctionExpr {
             }),
             #[cfg(feature = "dtype-struct")]
             RowDecode(fields, _) => mapper.with_dtype(DataType::Struct(fields.to_vec())),
+            DynamicPred { .. } => mapper.with_dtype(DataType::Boolean),
         }
     }
 
