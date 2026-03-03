@@ -434,6 +434,31 @@ pub fn cum_sum(s: &Series, reverse: bool) -> PolarsResult<Series> {
     cum_sum_with_init(s, reverse, &AnyValue::Null)
 }
 
+pub fn cum_mean_with_streaming(
+    s: &Series,
+    reverse: bool,
+    state: &mut CumMeanFloatState,
+) -> PolarsResult<Series> {
+
+    let ct = s.cast(&DataType::Float64)?;
+    let ca = ct.f64()?;
+
+    let out: Float64Chunked = match reverse {
+        false => ca.iter().map(|opt_v| {
+            match opt_v {
+                Some(v) => {
+                    state.sum += v;
+                    state.count += 1;
+                    Some(state.sum.sum() / state.count as f64)
+                }
+                None => None,
+            }
+        }).collect_trusted(),
+        true => unimplemented!("reverse streaming not supported"),
+    };
+    Ok(out.with_name(ca.name().clone()).into_series())
+}
+
 pub fn cum_mean_with_init(
     s: &Series,
     reverse: bool,
