@@ -444,14 +444,14 @@ pub fn cum_mean_with_streaming(
     let ca = ct.f64()?;
 
     let out: Float64Chunked = match reverse {
-        false => ca.iter().map(|opt_v| {
+        false => ca.iter().scan(state, |state, opt_v| {
             match opt_v {
                 Some(v) => {
                     state.sum += v;
                     state.count += 1;
-                    Some(state.sum.sum() / state.count as f64)
+                    Some(Some(state.sum.sum() / state.count as f64))
                 }
-                None => None,
+                None => Some(None),
             }
         }).collect_trusted(),
         true => unimplemented!("reverse streaming not supported"),
