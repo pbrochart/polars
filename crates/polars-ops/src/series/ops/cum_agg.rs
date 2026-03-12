@@ -13,16 +13,10 @@ use polars_utils::min_max::MinMax;
 use num_traits::ToPrimitive;
 use polars_utils::kahan_sum::KahanSum;
 
-#[cfg(feature = "dtype-decimal")]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct CumMeanDecimalState {
-    pub sum: i128,
-    pub count: u64,
-}
-
 #[derive(Debug, Clone, Default)]
-pub struct CumMeanFloatState {
+pub struct CumMeanState {
     pub sum: KahanSum<f64>,
+    pub sum_decimal: i128,
     pub count: u64,
 }
 
@@ -65,7 +59,7 @@ where
     }
 }
 
-fn det_avg<T>(state: &mut CumMeanFloatState, v: Option<T>) -> Option<Option<f64>>
+fn det_avg<T>(state: &mut CumMeanState, v: Option<T>) -> Option<Option<f64>>
 where
     T: Copy + ToPrimitive,
 {
@@ -114,13 +108,13 @@ where
 fn cum_mean_scan_numeric<T, F>(
     ca: &ChunkedArray<T>,
     reverse: bool,
-    init: CumMeanFloatState,
+    init: CumMeanState,
     update: F,
 ) -> Float64Chunked
 where
     T: PolarsNumericType,
     ChunkedArray<T>: FromIterator<Option<T::Native>>,
-    F: Fn(&mut CumMeanFloatState, Option<T::Native>) -> Option<Option<f64>>,
+    F: Fn(&mut CumMeanState, Option<T::Native>) -> Option<Option<f64>>,
 {
     let out: Float64Chunked = match reverse {
         false => ca.iter().scan(init, update).collect_trusted(),
@@ -299,7 +293,7 @@ where
 {
     let mut sum = KahanSum::default();
     sum += init.and_then(|v| v.to_f64()).unwrap_or(0.0);
-    let init = CumMeanFloatState {sum, count: 0};
+    let init = CumMeanState {sum, sum_decimal: 0, count: 0};
     cum_mean_scan_numeric(ca, reverse, init, det_avg)
 }
 
@@ -311,14 +305,14 @@ fn cum_avg_decimal(
 ) -> PolarsResult<Int128Chunked> {
     use polars_compute::decimal::{DEC128_MAX_PREC, dec128_add, dec128_div};
 
-    let mut state = CumMeanDecimalState {sum: init.unwrap_or(0), count: 0};
+    let mut state = CumMeanState {sum_decimal: init.unwrap_or(0), sum: KahanSum::default(), count: 0};
     let update = |opt_v: Option<i128>| -> PolarsResult<Option<i128>> {
         if let Some(v) = opt_v {
-            state.sum = dec128_add(state.sum, v, DEC128_MAX_PREC).ok_or_else(
+            state.sum_decimal = dec128_add(state.sum_decimal, v, DEC128_MAX_PREC).ok_or_else(
                 || polars_err!(ComputeError: "overflow in decimal addition in cum_mean"),
             )?;
             state.count += 1;
-            let value = dec128_div(state.sum, state.count as i128, DEC128_MAX_PREC, 0).ok_or_else(
+            let value = dec128_div(state.sum_decimal, state.count as i128, DEC128_MAX_PREC, 0).ok_or_else(
                 || polars_err!(ComputeError: "overflow in decimal division in cum_mean"),
             )?;
             Ok(Some(value))
@@ -437,26 +431,54 @@ pub fn cum_sum(s: &Series, reverse: bool) -> PolarsResult<Series> {
 pub fn cum_mean_with_streaming(
     s: &Series,
     reverse: bool,
-    state: &mut CumMeanFloatState,
+    state: &mut CumMeanState,
 ) -> PolarsResult<Series> {
+    use DataType::*;
+    use polars_compute::decimal::{DEC128_MAX_PREC, dec128_add, dec128_div};
 
-    let ct = s.cast(&DataType::Float64)?;
-    let ca = ct.f64()?;
-
-    let out: Float64Chunked = match reverse {
-        false => ca.iter().scan(state, |state, opt_v| {
-            match opt_v {
-                Some(v) => {
-                    state.sum += v;
+    if reverse {
+        polars_bail!(
+            InvalidOperation: "reverse operation is not supported in streaming"
+        );
+    }
+    let out = match s.dtype() {
+        #[cfg(feature = "dtype-decimal")]
+        Decimal(_precision, scale) => {
+            let ca = s.decimal()?.physical();
+            let update = |opt_v: Option<i128>| -> PolarsResult<Option<i128>> {
+                if let Some(v) = opt_v {
+                    state.sum_decimal = dec128_add(state.sum_decimal, v,  DEC128_MAX_PREC).ok_or_else(
+                        || polars_err!(ComputeError: "overflow in decimal addition in cum_mean"),
+                    )?;
                     state.count += 1;
-                    Some(Some(state.sum.sum() / state.count as f64))
+                    let mean = dec128_div(state.sum_decimal, state.count as i128, DEC128_MAX_PREC, 0).ok_or_else(
+                    || polars_err!(ComputeError: "overflow in decimal division in cum_mean"),
+                    )?;
+                    Ok(Some(mean))
+
+                } else {
+                    Ok(None)
                 }
-                None => Some(None),
-            }
-        }).collect_trusted(),
-        true => unimplemented!("reverse streaming not supported"),
+            };
+            ca.iter().map(update).try_collect_ca_trusted_like(ca)?.into_decimal_unchecked(DEC128_MAX_PREC, *scale).into_series()
+        }
+        _ => {
+            let ct = s.cast(&Float64)?;
+            let ca = ct.f64()?;
+            let out: Float64Chunked = ca.iter().scan(state, |state, opt_v| {
+                match opt_v {
+                    Some(v) => {
+                        state.sum += v;
+                        state.count += 1;
+                        Some(Some(state.sum.sum() / state.count as f64))
+                    }
+                    None => Some(None),
+                }
+            }).collect_trusted();
+            out.with_name(ca.name().clone()).into_series()
+        }
     };
-    Ok(out.with_name(ca.name().clone()).into_series())
+    Ok(out)
 }
 
 pub fn cum_mean_with_init(

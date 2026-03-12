@@ -227,7 +227,7 @@ impl IRFunctionExpr {
             #[cfg(feature = "cum_agg")]
             CumMax { .. } => mapper.with_same_dtype(),
             #[cfg(feature = "cum_agg")]
-            CumMean { .. } => mapper.with_same_dtype(),
+            CumMean { .. } => mapper.map_dtype(cum::dtypes::cum_mean),
             #[cfg(feature = "approx_unique")]
             ApproxNUnique => mapper.with_dtype(IDX_DTYPE),
             #[cfg(feature = "hist")]
