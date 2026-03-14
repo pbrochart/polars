@@ -455,13 +455,61 @@ pub fn cum_mean_with_streaming(
                     || polars_err!(ComputeError: "overflow in decimal division in cum_mean"),
                     )?;
                     Ok(Some(mean))
-
                 } else {
                     Ok(None)
                 }
             };
             ca.iter().map(update).try_collect_ca_trusted_like(ca)?.into_decimal_unchecked(DEC128_MAX_PREC, *scale).into_series()
         }
+
+        #[cfg(feature = "dtype-duration")]
+        Duration(tu) => {
+            let ca = s.duration()?.physical();
+            let out: Int64Chunked = ca.iter().scan(state, |state, opt_v| {
+                match opt_v {
+                    Some(v) => {
+                        state.sum += v as f64;
+                        state.count += 1;
+                        Some(Some((state.sum.sum() / state.count as f64) as i64))
+                    }
+                    None => Some(None),
+                }
+            }).collect_trusted();
+            out.with_name(ca.name().clone()).into_duration(*tu).into_series()
+        }
+
+        #[cfg(feature = "dtype-datetime")]
+        Datetime(tu, tz) => {
+            let ca = s.datetime()?.physical();
+            let out: Int64Chunked = ca.iter().scan(state, |state, opt_v| {
+                match opt_v {
+                    Some(v) => {
+                        state.sum += v as f64;
+                        state.count += 1;
+                        Some(Some((state.sum.sum() / state.count as f64) as i64))
+                    }
+                    None => Some(None),
+                }
+            }).collect_trusted();
+            out.with_name(ca.name().clone()).into_datetime(*tu, tz.clone()).into_series()
+        }
+
+        #[cfg(feature = "dtype-date")]
+        Date => {
+            let ca = s.date()?.physical();
+            let out: Int32Chunked = ca.iter().scan(state, |state, opt_v| {
+                match opt_v {
+                    Some(v) => {
+                        state.sum += v as f64;
+                        state.count += 1;
+                        Some(Some((state.sum.sum() / state.count as f64) as i32))
+                    }
+                    None => Some(None),
+                }
+            }).collect_trusted();
+            out.with_name(ca.name().clone()).into_date().into_series()
+        }
+
         _ => {
             let ct = s.cast(&Float64)?;
             let ca = ct.f64()?;
