@@ -1013,6 +1013,43 @@ fn test_order_by_excluded_column() {
 }
 
 #[test]
+fn test_scalar_aggregate_with_order_by() -> PolarsResult<()> {
+    let df = df! {
+        "x" => [1.0, 2.0, 3.0, 4.0],
+        "y" => [2.0, 4.0, 6.0, 8.0],
+    }?;
+
+    let mut context = SQLContext::new();
+    context.register("df", df.lazy());
+
+    let queries = [
+        ("QUANTILE_CONT(x, 0.5)", 2.5),
+        ("QUANTILE_DISC(x, 0.5)", 2.0),
+        ("CORR(x, y)", 1.0),
+        ("COVAR_POP(x, y)", 2.5),
+        ("COVAR_SAMP(x, y)", 10.0 / 3.0),
+    ];
+
+    for (function, expected) in queries {
+        let sql =
+            format!("SELECT COUNT(*) AS n, {function} AS value FROM df ORDER BY n");
+
+        let result = context.execute(&sql)?.collect()?;
+
+        assert_eq!(result.height(), 1, "{function} should return one row");
+        assert_eq!(result["n"].get(0)?, AnyValue::Int64(4));
+
+        let value = result["value"].get(0)?.extract::<f64>().unwrap();
+        assert!(
+            (value - expected).abs() < 1e-10,
+            "{function}: expected {expected}, got {value}"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 fn test_struct_field_selection() {
     let (df_struct, df_original) = create_struct_df();
 

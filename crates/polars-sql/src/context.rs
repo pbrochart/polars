@@ -4198,6 +4198,14 @@ impl ExprSqlProjectionHeightBehavior {
                 Literal(v) => !v.is_scalar(),
                 Explode { .. } | Filter { .. } | Gather { .. } | Slice { .. } => true,
                 Agg { .. } | Len => true,
+                // Functions that produce a scalar independent of input height.
+                Function { function, .. } => matches!(
+                    function,
+                    FunctionExpr::Quantile { .. }
+                        | FunctionExpr::Correlation {
+                            method: CorrelationMethod::Pearson | CorrelationMethod::Covariance(_),
+                        }
+                ),
                 _ => false,
             }
         }
